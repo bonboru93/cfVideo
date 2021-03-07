@@ -1,3 +1,7 @@
-usage: npm start [http://myworker.myname.workers.dev/sample.mp4]
+# usage
+http://localhost:61234/http://example.com/sample.mp4
 
-将薅羊毛进行到底
+# tuning
+CONCURRENCY_LEVEL
+
+CHUNK_SIZE
