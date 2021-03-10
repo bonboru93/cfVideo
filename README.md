@@ -1,7 +1,4 @@
 # usage
-http://localhost:61234/http://example.com/sample.mp4
+http://localhost:61234/setting?[CONCURRENCY_LEVEL],[CHUNK_SIZE]
 
-# tuning
-CONCURRENCY_LEVEL
-
-CHUNK_SIZE
+http://localhost:61234/video?[url]
