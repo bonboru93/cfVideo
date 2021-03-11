@@ -69,6 +69,7 @@ const handleVideo = async (req, rsp) => {
     }
 
     rsp.writeHead(206, {
+        'Connection': 'close',
         'Content-Type': reqVideoInfo.format,
         'Content-Length': reqVideoInfo.size - reqRangeBegin,
         'Content-Range': `bytes ${reqRangeBegin}-${reqVideoInfo.size - 1}/${reqVideoInfo.size}`
