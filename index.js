@@ -14,6 +14,7 @@ axiosRetry(axios, {
 // ===== global begin =====
 const SERVER_ADDR = 'localhost'
 const SERVER_PORT = 61234
+const USER_AGENT = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_14_6) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/89.0.4389.72 Safari/537.36'
 
 let concurrencyLevel = 15
 let chunkSize = 2 * 1024 * 1024
@@ -50,11 +51,13 @@ const getVideoInfo = async videoUrl => {
     const range = rsp.headers['content-range']
     const size = Number(range.substring(range.indexOf('/') + 1))
     const format = rsp.headers['content-type']
-    return { size, format }
+    let cfduid = rsp.headers['set-cookie'].filter(setCookieStr => setCookieStr.indexOf('__cfduid=') === 0)[0]
+    cfduid = cfduid.substring(0, cfduid.indexOf(' '))
+    return { size, format, cfduid }
 }
 
 const handleVideo = async (req, rsp) => {
-    const reqUrl = req.url.replace('https', 'http')
+    const reqUrl = req.url.replace('https://', 'http://')
     console.log(`${new Date().toLocaleString()} ${req.socket.remoteAddress}:${req.socket.remotePort} [${decodeURI(reqUrl.substring(reqUrl.lastIndexOf('/') + 1))}] started`)
 
     const reqRange = req.headers.range || '=0-'
@@ -69,10 +72,10 @@ const handleVideo = async (req, rsp) => {
     }
 
     rsp.writeHead(206, {
-        'Connection': 'close',
-        'Content-Type': reqVideoInfo.format,
-        'Content-Length': reqVideoInfo.size - reqRangeBegin,
-        'Content-Range': `bytes ${reqRangeBegin}-${reqVideoInfo.size - 1}/${reqVideoInfo.size}`
+        connection: 'close',
+        'content-type': reqVideoInfo.format,
+        'content-length': reqVideoInfo.size - reqRangeBegin,
+        'content-range': `bytes ${reqRangeBegin}-${reqVideoInfo.size - 1}/${reqVideoInfo.size}`
     })
 
     while (reqRangeBegin < reqVideoInfo.size) {
@@ -89,7 +92,11 @@ const handleVideo = async (req, rsp) => {
             axios.get(reqUrl, {
                 httpAgent,
                 responseType: 'arraybuffer',
-                headers: { range: `bytes=${rangeBegin}-${rangeEnd}` },
+                headers: {
+                    'user-agent': USER_AGENT,
+                    cookie: reqVideoInfo.cfduid,
+                    range: `bytes=${rangeBegin}-${rangeEnd}`
+                },
             }).then(rsp => rsp.data)
         )).catch(() => null)
         const videoContentPart = await Promise.race([videoContentPartReq, sleep(60)])
@@ -120,6 +127,7 @@ http.createServer((req, rsp) => {
         handleSetting(req, rsp)
     }
     else if (req.url.indexOf('/video?') === 0) {
+        req.on('close', () => req.isDead = true)
         req.url = req.url.substring('/video?'.length)
         handleVideo(req, rsp)
     }
@@ -127,8 +135,5 @@ http.createServer((req, rsp) => {
         rsp.writeHead(404)
         rsp.end()
     }
-
-    req.on('close', () => req.isDead = true)
-
 }).listen(SERVER_PORT, SERVER_ADDR)
 console.log(`${new Date().toLocaleString()} server listen at ${SERVER_ADDR}:${SERVER_PORT}`)
